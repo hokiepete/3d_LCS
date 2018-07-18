@@ -2,7 +2,6 @@
 close all;
 clear all
 clc
-sigmatol=1.1
 concavitytol=0
 load ftle
 ftle = f(:,1:4:end,:);
@@ -14,10 +13,9 @@ dim = size(ftle);
 hx=300
 hy=300
 hz=200
-%pr = prctile(reshape(ftle,1,[]),95)
 ftle_ordered = sort(reshape(ftle,1,[]));
-index = ceil((length(ftle_ordered)*0.98));
-pr = ftle_ordered(index)
+index = ceil((length(ftle_ordered)*0.8));
+ftle_thresh = ftle_ordered(index)
 [dx,dy,dz] = gradient(ftle,hx,hy,hz);
 [dxdx,dydx,dzdx] = gradient(dx,hx,hy,hz);
 [dxdy,dydy,dzdy] = gradient(dy,hx,hy,hz);
@@ -56,38 +54,21 @@ x = linspace(-38700,38700,259);
 y = linspace(-38400,38400,257);
 z= linspace(0,8000,41);
 [x,y,z]=meshgrid(x,y,z);
+save LCS_data ftle Cdiv concavity x y z
 'isosurface'
 FV=isosurface(x,y,z,Cdiv,0);
-%{
-[faces,verts,colors]
-FV.vertices = vertices
-FV.faces = faces;
+save rawisosurface FV x y z
+clear Cdiv
 
-figure(2)
-p=patch(FV);
-set(p,'FaceColor','blue','EdgeColor','none');
-camlight 
-lighting gouraud
-xlabel('x (meters)')
-ylabel('y (meters)')
-zlabel('z (meters)')
-view(3)
-
-%}
 vertcon = interp3(x,y,z,concavity,FV.vertices(:,1),FV.vertices(:,2),FV.vertices(:,3),'spline');
+ftle = interp3(x,y,z,ftle,FV.vertices(:,1),FV.vertices(:,2),FV.vertices(:,3),'spline');
 clear concavity
-%
-if ~isnan(sigmatol);
-    stat = reshape(ftle,[],1);
-    s = std(stat) ;
-    fmean = mean(stat);
-    threshhold = fmean+sigmatol*s
-    ftle = interp3(x,y,z,ftle,FV.vertices(:,1),FV.vertices(:,2),FV.vertices(:,3),'spline');
+
+if ~isnan(ftle_thresh);
     index = 1;
     'remove vertices'
     for i = 1:length(vertcon)
-        %if or(vertcon(i)>=concavitytol,ftle(i)<(fmean+sigmatol*s))
-         if or(vertcon(i)>=concavitytol,ftle(i)<pr)
+         if or(vertcon(i)>=concavitytol,ftle(i)<ftle_thresh)
             verticesToRemove(index) =  i;
             index = index + 1;
         end
@@ -122,12 +103,10 @@ FV.faces = newFaces;
 
 attFV = FV;
 clear FV newFaces newVertices verticesToRemove newVertexIndex newVertexIndex
-
-
+save true_lcs attFV x y z
+%
 figure
-p=patch(attFV);
-set(p,'FaceColor','blue','EdgeColor','none');
-%set(p,'FaceColor','interp','EdgeColor','interp');
+patch(attFV,'FaceColor','blue','EdgeColor','none');
 camlight 
 lighting gouraud
 xlabel('x (meters)')
