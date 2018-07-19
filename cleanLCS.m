@@ -1,51 +1,65 @@
-close all
 clear all
+close all
 clc
-load FV
+load LCS_data
+load rawisosurface
+ftle_ordered = sort(reshape(ftle,1,[]));
+index = floor((length(ftle_ordered)*0.9));
+ftle_thresh = ftle_ordered(index)
 
 
-%{
-xx = attFV.vertices(:,1);
-yy = attFV.vertices(:,2);
-zz = attFV.vertices(:,3);
+vertcon = interp3(x,y,z,concavity,FV.vertices(:,1),FV.vertices(:,2),FV.vertices(:,3),'spline');
+ftle = interp3(x,y,z,ftle,FV.vertices(:,1),FV.vertices(:,2),FV.vertices(:,3),'spline');
+clear concavity
 
-
-%tri = delaunay(xx,yy,zz);
-%trisurf(tri,xx,yy,zz,'edgecolor','none','FaceAlpha',0.3)
-dt = delaunayTriangulation(xx,yy,zz);
-maxdist=520*2;
-%maxdist=300;
-len=length(dt(:,1))
-
-%L=dt.ConnectivityList(i,:);
-a=dt.Points(dt.ConnectivityList(:,1),:);
-b=dt.Points(dt.ConnectivityList(:,2),:);
-c=dt.Points(dt.ConnectivityList(:,3),:);
-d=dt.Points(dt.ConnectivityList(:,4),:);
-distAB = sqrt((a(:,1)-b(:,1)).^2+(a(:,2)-b(:,2)).^2+(a(:,3)-b(:,3)).^2);
-distAC = sqrt((a(:,1)-c(:,1)).^2+(a(:,2)-c(:,2)).^2+(a(:,3)-c(:,3)).^2);
-distAD = sqrt((a(:,1)-d(:,1)).^2+(a(:,2)-d(:,2)).^2+(a(:,3)-d(:,3)).^2);
-distBC = sqrt((b(:,1)-c(:,1)).^2+(b(:,2)-c(:,2)).^2+(b(:,3)-c(:,3)).^2);
-distBD = sqrt((b(:,1)-d(:,1)).^2+(b(:,2)-d(:,2)).^2+(b(:,3)-d(:,3)).^2);
-distCD = sqrt((c(:,1)-d(:,1)).^2+(c(:,2)-d(:,2)).^2+(c(:,3)-d(:,3)).^2);
-disTest = [distAB < maxdist, distAC < maxdist ,distAD < maxdist,...
-           distBC < maxdist, distBD < maxdist ,distCD < maxdist];
-index =1;
-for i = 1:len
-    i
-    if(min(disTest(i,:)))
-        newConnectivity(index,:)=dt.ConnectivityList(i,:);
-        index = index + 1
+if ~isnan(ftle_thresh);
+    index = 1;
+    'remove vertices'
+    for i = 1:length(vertcon)
+         if or(vertcon(i)>=0,ftle(i)<ftle_thresh)
+            verticesToRemove(index) =  i;
+            index = index + 1;
+        end
+    end
+else
+    index = 1;
+    for i = 1:length(vertcon)
+        if or(vertcon(i)>=0,ftle(i)<0)
+            verticesToRemove(index) =  i;
+            index = index + 1;
+        end
     end
 end
+clear ftle vertconcavity index i
 
-save connenct newConnectivity dt
+
+% Remove the vertex values at the specified index values
+newVertices = FV.vertices;
+newVertices(verticesToRemove,:) = [];
+
+% Find the new index for each of the new vertices
+[~, newVertexIndex] = ismember(FV.vertices, newVertices, 'rows');
+
+% Find any faces that used the vertices that we removed and remove them
+newFaces = FV.faces(all(~ismember(FV.faces, verticesToRemove), 2),:);
+
+% Now updata the vertex indices to the new ones
+newFaces = newVertexIndex(newFaces);
+
+FV.vertices = newVertices;
+FV.faces = newFaces;
+
+attFV = FV;
+clear FV newFaces newVertices verticesToRemove newVertexIndex newVertexIndex
+
+save thresh_lcs attFV x y z
 
 figure
-%tetramesh(newConnectivity, newPoints, 'FaceColor', 'red')
-tetramesh(newConnectivity, dt.Points, 'FaceColor', 'blue','edgecolor','none')
-camlight
-%shading interp
-%}
-
-
+patch(attFV,'FaceColor','blue','EdgeColor','none');
+camlight 
+lighting gouraud
+xlabel('x (meters)')
+ylabel('y (meters)')
+zlabel('z (meters)')
+axis tight
+view(3)
