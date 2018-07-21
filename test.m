@@ -1,9 +1,13 @@
-%{
+%
 clear all
 close all
 clc
+%{
 load thresh_lcs
 out = splitFV(attFV);
+save patches out x y z
+%}
+load patches
 len = length(out);
 index = 1;
 %
